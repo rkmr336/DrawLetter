@@ -770,29 +770,11 @@ function renderPrediction(data) {
   predictionEmpty.style.display = 'none';
   predictionActive.style.display = 'flex';
 
-  // Hero display
+  // Hero display (Predicted Letter & Confidence)
   predLetter.textContent = data.prediction || '?';
   const confPct = Math.round((data.confidence || 0) * 100);
   predConfidence.textContent = `${confPct}%`;
   predMeter.style.width = `${confPct}%`;
-
-  // Top 3 list
-  top3List.innerHTML = '';
-  if (data.top3 && data.top3.length > 0) {
-    for (const item of data.top3) {
-      const pct = Math.round((item.prob || 0) * 100);
-      const row = document.createElement('div');
-      row.className = 'top3-row';
-      row.innerHTML = `
-        <span class="top3-label">${item.label}</span>
-        <div class="top3-bar-track">
-          <div class="top3-bar-fill" style="width: ${pct}%;"></div>
-        </div>
-        <span class="top3-percent">${pct}%</span>
-      `;
-      top3List.appendChild(row);
-    }
-  }
 
   // Processed 28x28 preview
   if (data.processed_preview) {
