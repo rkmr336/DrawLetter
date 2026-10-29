@@ -1,0 +1,8 @@
+torch==2.5.1
+torchvision==0.20.1
+numpy>=2.0.0
+matplotlib>=3.9.0
+scikit-learn>=1.5.0
+onnx>=1.16.0
+onnxscript>=0.1.0
+tqdm>=4.66.0

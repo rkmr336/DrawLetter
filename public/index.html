@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DrawLetter</title>
+  <meta name="description" content="DrawLetter - Write a letter in the air with your finger" />
+  <meta property="og:title" content="DrawLetter" />
+  <meta name="apple-mobile-web-app-title" content="DrawLetter" />
+  <!-- Google Fonts: Space Grotesk + Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-wrapper">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <span class="logo-icon">✨</span>
+        <div class="brand-text">
+          <h1>DrawLetter</h1>
+          <p class="tagline">Write a letter in the air with your finger.</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <div class="status-badge" id="backendBadge">
+          <span class="badge-dot"></span>
+          <span class="badge-text" id="backendBadgeText">Checking API...</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main side-by-side grid -->
+    <main class="main-grid">
+      <!-- Left Card: Camera & Air Writing -->
+      <section class="card camera-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <h2 class="card-title">Air Writing</h2>
+            <span class="fps-counter" id="fpsText">-- FPS</span>
+          </div>
+          <div class="gesture-state-chip" id="gestureChip">
+            <span class="chip-dot"></span>
+            <span id="gestureChipText">No hand</span>
+          </div>
+        </div>
+
+        <!-- Video & Overlay Viewport -->
+        <div class="viewport-wrapper" id="viewportWrapper">
+          <video id="webcam" playsinline autoplay muted></video>
+          <canvas id="trailCanvas"></canvas>
+
+          <!-- Start Prompt / Permission Overlay -->
+          <div class="viewport-overlay" id="startOverlay">
+            <div class="overlay-content">
+              <div class="overlay-icon">📹</div>
+              <h3>Ready to write in the air?</h3>
+              <p id="cameraNotice">Camera access runs purely in your browser. No video is ever recorded or uploaded.</p>
+              <button class="btn btn-primary btn-lg" id="startCameraBtn">Start camera</button>
+            </div>
+          </div>
+
+          <!-- Countdown / Warning Toast -->
+          <div class="feedback-toast" id="feedbackToast" style="display: none;"></div>
+        </div>
+
+        <!-- Toolbar & Options -->
+        <div class="camera-toolbar">
+          <div class="actions-group">
+            <button class="btn btn-primary" id="predictBtn" disabled>Predict now</button>
+            <button class="btn btn-secondary" id="clearBtn">Clear</button>
+          </div>
+          <div class="toggles-group">
+            <label class="toggle-control" title="Predicts automatically 1.5s after finishing stroke">
+              <input type="checkbox" id="autoPredictToggle" checked />
+              <span class="toggle-switch"></span>
+              <span class="toggle-label">Auto-predict</span>
+            </label>
+            <label class="toggle-control" title="Show hand tracking landmarks">
+              <input type="checkbox" id="showSkeletonToggle" />
+              <span class="toggle-switch"></span>
+              <span class="toggle-label">Skeleton</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Gesture Guide Legend -->
+        <div class="gesture-legend">
+          <div class="legend-item">
+            <span class="legend-badge">☝️ Index up</span>
+            <span class="legend-desc"><strong>Pen down</strong> (draws)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-badge">✌️ Peace sign</span>
+            <span class="legend-desc"><strong>Pen up</strong> (move)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-badge">🖐️ Open palm</span>
+            <span class="legend-desc"><strong>Clear</strong> (hold 1s)</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Card: Recognition Results -->
+      <section class="card prediction-card">
+        <div class="card-header">
+          <h2 class="card-title">Prediction</h2>
+        </div>
+
+        <!-- Empty state before first prediction -->
+        <div class="prediction-empty" id="predictionEmpty">
+          <div class="empty-icon">✍️</div>
+          <p class="empty-title">Show your hand, then write a letter inside the box</p>
+          <p class="empty-sub">Point with your index finger inside the guide box to write. Draw letters large to fill most of the box for best recognition accuracy.</p>
+        </div>
+
+        <!-- Active prediction display -->
+        <div class="prediction-active" id="predictionActive" style="display: none;">
+          <div class="hero-prediction">
+            <div class="letter-display" id="predLetter">--</div>
+            <div class="confidence-container">
+              <div class="confidence-header">
+                <span class="confidence-title">Confidence</span>
+                <span class="confidence-val" id="predConfidence">--%</span>
+              </div>
+              <div class="meter-track">
+                <div class="meter-fill" id="predMeter"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top-3 breakdown -->
+          <div class="top3-container">
+            <h3 class="section-label">Top 3 Candidates</h3>
+            <div class="top3-list" id="top3List"></div>
+          </div>
+
+          <!-- Processed 28x28 Preview -->
+          <div class="preview-box" id="previewBox" style="display: none;">
+            <span class="section-label">What the model sees (28×28)</span>
+            <div class="preview-img-frame">
+              <img id="previewImg" alt="Preprocessed 28x28 input" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Loading state overlay inside card -->
+        <div class="card-loading" id="cardLoading" style="display: none;">
+          <div class="spinner"></div>
+          <p>Recognizing letter...</p>
+        </div>
+
+        <!-- Shortcuts footer -->
+        <div class="keyboard-legend">
+          <span><kbd>Enter</kbd> Predict</span>
+          <span><kbd>Esc</kbd> Clear</span>
+          <span><kbd>Space</kbd> Toggle Pen</span>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Offscreen canvas for stroke rendering and export -->
+  <canvas id="exportCanvas" width="400" height="400" style="display: none;"></canvas>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>

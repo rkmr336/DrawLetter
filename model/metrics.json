@@ -1,0 +1,13 @@
+{
+  "emnist_split": "letters",
+  "num_classes": 26,
+  "test_accuracy": 0.9342,
+  "best_val_accuracy": 0.934215,
+  "epochs": 6,
+  "batch_size": 128,
+  "seed": 42,
+  "onnx_size_mb": 1.77,
+  "total_params": 440474,
+  "date": "2026-10-30T01:47:00"
+}
+
