@@ -1,50 +1,74 @@
 """
-api/index.py — Debug entrypoint to return exact Vercel failure details
+api/index.py — Production Vercel Serverless Function Entrypoint for DrawLetter.
+Routes:
+  GET  /api/health
+  POST /api/predict
 """
 
 import sys
-import os
 import pathlib
-import traceback
+import json
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, field_validator
 
-app = FastAPI(title="DrawLetter Diagnostics")
+# Ensure project root is in sys.path
+ROOT = pathlib.Path(__file__).parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from app.inference import is_model_loaded, predict
+
+app = FastAPI(
+    title="DrawLetter",
+    description="Recognizes air-written letters A-Z using a CNN trained on EMNIST.",
+    version="2.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+MAX_IMAGE_BYTES = 2 * 1024 * 1024
+
+class PredictRequest(BaseModel):
+    image: str
+    include_preview: bool = True
+
+    @field_validator("image")
+    @classmethod
+    def check_size(cls, v: str) -> str:
+        if len(v) > MAX_IMAGE_BYTES * 1.4:
+            raise ValueError("Image payload is too large (max 2 MB raw)")
+        if not v.startswith("data:image"):
+            raise ValueError("image must be a base64 data URL (data:image/...)")
+        return v
 
 @app.get("/api/health")
 async def health():
-    diagnostics = {
-        "status": "checking",
-        "python_version": sys.version,
-        "cwd": os.getcwd(),
-        "files_in_root": os.listdir(".") if os.path.exists(".") else []
-    }
-    
-    # Check 1: Test importing numpy
     try:
-        import numpy as np
-        diagnostics["numpy"] = f"OK (v{np.__version__})"
+        loaded = is_model_loaded()
+        return {
+            "status": "ok",
+            "model_loaded": loaded,
+            "test_accuracy": 0.9342
+        }
     except Exception as e:
-        diagnostics["numpy_error"] = str(e)
-
-    # Check 2: Test importing onnxruntime
-    try:
-        import onnxruntime as ort
-        diagnostics["onnxruntime"] = f"OK (v{ort.__version__})"
-    except Exception as e:
-        diagnostics["onnxruntime_error"] = f"{type(e).__name__}: {str(e)}"
-        diagnostics["onnxruntime_traceback"] = traceback.format_exc()
-
-    # Check 3: Test loading model
-    try:
-        from app.inference import is_model_loaded
-        diagnostics["model_loaded"] = is_model_loaded()
-    except Exception as e:
-        diagnostics["model_error"] = str(e)
-        diagnostics["model_traceback"] = traceback.format_exc()
-
-    return JSONResponse(content=diagnostics)
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "detail": str(e)}
+        )
 
 @app.post("/api/predict")
-async def predict_placeholder():
-    return JSONResponse(status_code=503, content={"detail": "Diagnostics active"})
+async def predict_route(req: PredictRequest):
+    try:
+        result = predict(req.image, include_preview=req.include_preview)
+        return JSONResponse(content=result)
+    except ValueError as e:
+        return JSONResponse(status_code=422, content={"detail": str(e)})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": f"Inference error: {str(e)}"})
