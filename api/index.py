@@ -1,18 +1,43 @@
 """
-api/index.py — Vercel serverless entrypoint.
-
-Vercel's Python runtime looks for a callable named `app` (ASGI/WSGI).
-We simply re-export the FastAPI app from app/main.py.
+api/index.py — Robust Vercel serverless entrypoint for DrawLetter.
+Provides debug fallback if model loading or imports encounter platform issues.
 """
 
 import sys
 import pathlib
+import traceback
 
-# Make sure the project root is on the path so app.main can be imported
 ROOT = pathlib.Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT))
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-from app.main import app   # re-export for Vercel
+try:
+    from app.main import app
+except Exception as e:
+    # If app failed to import at cold start, create a lightweight fallback FastAPI
+    # app so we can see the exact error in /api/health instead of generic FUNCTION_INVOCATION_FAILED 500
+    from fastapi import FastAPI
+    from fastapi.responses import JSONResponse
+    
+    app = FastAPI(title="DrawLetter Fallback")
+    _err_msg = str(e)
+    _err_tb = traceback.format_exc()
+    
+    @app.get("/api/health")
+    async def fallback_health():
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "error": _err_msg,
+                "traceback": _err_tb,
+                "hint": "Check Vercel function dependencies or model path."
+            }
+        )
 
-__all__ = ["app"]
-
+    @app.post("/api/predict")
+    async def fallback_predict():
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"Backend failed to load on Vercel: {_err_msg}"}
+        )

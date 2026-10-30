@@ -1,13 +1,9 @@
 {
   "version": 2,
-  "name": "drawletter",
   "builds": [
     {
       "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "50mb"
-      }
+      "use": "@vercel/python"
     },
     {
       "src": "public/**",
@@ -25,4 +21,3 @@
     }
   ]
 }
-
